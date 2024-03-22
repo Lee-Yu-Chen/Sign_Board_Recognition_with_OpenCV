@@ -1,0 +1,89 @@
+import numpy as np
+import cv2
+
+cameraCapture=cv2.VideoCapture(0)
+while True:
+  success, frame = cameraCapture.read()
+  frame=cv2.rotate(frame,cv2.ROTATE_180)
+  frame=cv2.flip(frame,1)
+  output=frame.copy()
+  output2=frame.copy()
+  gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+  # detect circles in the image
+  
+  circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1.2, frame.shape[1]*2, param1=200, param2=50, minRadius=int(frame.shape[1]/8), maxRadius=0)
+  
+  print('1')
+  # ensure at least some circles were found
+  if circles is not None:
+     X_ori=circles[0][0][0]
+     Y_ori=circles[0][0][1]
+  
+     # convert the (x, y) coordinates and radius of the circles to integers
+     circles = np.round(circles[0, :]).astype("int")
+     print('2')
+     # loop over the (x, y) coordinates and radius of the circles
+     for (x,y,r) in circles:
+         # draw the circle in the output image, then draw a rectangle
+         # corresponding to the center of the circle
+          cv2.circle(output, (x, y), r, (0, 255, 0), 4)
+          
+          print(x,y)
+          print(r)
+          a=cv2.rectangle(output, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
+          #print(a)
+         # show the output image
+          cv2.imshow("output", output)
+          
+#           gray = np.float32(gray)
+#           dst = cv2.cornerHarris(gray,2,3,0.04)
+#           num_corners = np.sum(dst > 0.01 * dst.max())
+#           dst = cv2.dilate(dst,None)
+#           output[dst>0.01*dst.max()]=[0,0,255]   
+          mask = np.full((output.shape[0], output.shape[1]), 0, dtype=np.uint8)  # mask is only 
+          for i in circles:
+            cv2.circle(mask, (i[0], i[1]), i[2], (255, 255, 255), -1)
+          # get first masked value (foreground)
+          fg = cv2.bitwise_or(output, output, mask=mask)
+          # get second masked value (background) mask must be inverted
+          mask = cv2.bitwise_not(mask)
+          background = np.full(output.shape, 255, dtype=np.uint8)
+          bk = cv2.bitwise_or(background, background, mask=mask)
+          # combine foreground+background
+          final = cv2.bitwise_or(fg, bk)
+          
+          #cv2.imshow("output2", final)
+          gray1 = cv2.cvtColor(final,cv2.COLOR_BGR2GRAY)
+          corners = cv2.goodFeaturesToTrack(gray1,4,0.5,10)
+          corners = np.int0(corners)
+          left = []
+          right = []
+          up = []
+          down = []
+          for i in corners:
+              x,y = i.ravel()
+              cv2.circle(gray1,(x,y),3,(255,0,0),5)
+              cv2.imshow('corner',gray1)
+              if x>X_ori:
+                  right.append(i)
+              elif x<X_ori:
+                  left.append(i)
+              if y>Y_ori:
+                   down.append(i)
+              elif y<Y_ori:
+                   up.append(i)
+              print(len(right),len(left),len(up),len(down))
+          if (len(up)>=3)& (len(right)>=2):
+               print('forward')
+          if (len(down)>=3) & (len(left)>=2):
+               print('backward')
+          if  (len(left)>=3 & len(up)>=2):
+               print('turn left')
+          if  (len(right)>=3 & len(down)>=2):
+               print('turn right')
+              
+  if cv2.waitKey(1)& 0xFF==ord('q'):
+    break
+        
+frame.release()
+cv2.destroyAllWindows()
